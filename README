@@ -1,0 +1,44 @@
+An implementation much like flux or redshift, but very much simpler, using
+standard Xlib.
+
+While this program is a "daemon", it does not detach from its controlling
+terminal by default; it is intended to be run from something which handles
+process management on its behalf, such as various supervisory init systems
+(systemd, runit, etc.), much like a server.
+
+xgammad provides two functions:
+
+ - Adjusting the "color temperature" of the display, and
+ - Adjusting per-component or global gamma ramps.
+
+It does these adjustments linearly over time, to permit acclimation. Almost all
+of the parameters can be adjusted while the daemon is running by writing to a
+FIFO--by default, the FIFO is /tmp/xgammad.$USER (with appropriate
+substitution), but this can be changed before compiling. The following characters may be written to the FIFO, each being interpreted in order:
+
+ - kFFF: for some floating point value FFF, sets the target color temperature
+   to FFF Kelvin, and begins a ramp to this target from the current settings.
+ - r: Reset all temperature-induced color curves to unity.
+ - tNNN: for some integer NNN, sets the transition time from initial to target
+   to NNN "ticks", where a "TICK" is defined during compile time. By default,
+   it is 0.1 seconds.
+ - cNNN: for some integer NNN, sets the update time to NNN ticks; after
+   reaching the target, xgammad will periodically "update" the settings in case
+   something changed.
+ - u: Update right now--set all parameters to their target values. This will be
+   abrupt if a transition was in progress.
+ - grFFF: for a floating point FFF, sets the red gamma value to FFF. This is
+   specified as a reciprocal of the exponent; for example, standard sRGB
+   specifies a value of 2.4 for actual intensity.
+ - ggFFF: as above, but sets the green gamma value.
+ - gbFFF: as above, but sets the blue gamma value.
+ - gFFF: as above, but sets all component gammas simultaneously.
+ - q: Terminate xgammad. No attempt is made to reset device state; see below.
+ - d: Print out debugging information.
+
+ Commands without parameters (r, u, q, d) can be on the same line; others
+ should be separated from each other by a newline. Commands are interpreted in
+ exactly the order given.
+
+ A typical way to exit xgammad and reset device state consists of writing "ruq"
+ (Reset, Update, Quit) to the control FIFO.

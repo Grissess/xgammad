@@ -80,6 +80,7 @@ int main(int argc, char **argv) {
 	}
 
 	nscreens = XScreenCount(dpy);
+	printf("Display has %u screens\n", nscreens);
 
 	XF86VidModeGetGammaRampSize(dpy, 0, &gammasz);
 	printf("Gamma Ramp size is %d\n", gammasz);
@@ -112,9 +113,15 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
+	for(i = 0; i < gammasz; i++) {
+		buffer[i] = i << 8 | i;
+		buffer[i + gammasz] = buffer[i];
+		buffer[i + gammasz * 2] = buffer[i];
+	}
+
 	while(running) {
 		/* Update values */
-		if(ticks < chfini && ticks > chinit) {
+		if(ticks <= chfini && ticks > chinit) {
 			colortable(buffer, gammasz, gen_lin_interp(oldrpeak, rpeak, ticks, chinit, chfini), gen_lin_interp(oldrgamma, rgamma, ticks, chinit, chfini));
 			colortable(buffer + gammasz, gammasz, gen_lin_interp(oldgpeak, gpeak, ticks, chinit, chfini), gen_lin_interp(oldggamma, ggamma, ticks, chinit, chfini));
 			colortable(buffer + gammasz * 2, gammasz, gen_lin_interp(oldbpeak, bpeak, ticks, chinit, chfini), gen_lin_interp(oldbgamma, bgamma, ticks, chinit, chfini));
@@ -151,9 +158,21 @@ int main(int argc, char **argv) {
 						bpeak = clamp(bpeak, 0, 1);
 						chinit = ticks;
 						chfini = ticks + chtime;
-						printf("\tKelvin to %g\nNew peaks to %g,%g,%g", kelvin, rpeak, gpeak, bpeak);
+						printf("\tKelvin to %g\n\tNew peaks to %g,%g,%g\n", kelvin, rpeak, gpeak, bpeak);
 					}
 					i = (nextcmd - cmdbuf);
+					break;
+
+				case 'r':  /* Reset */
+					oldrpeak = rpeak;
+					oldgpeak = gpeak;
+					oldbpeak = bpeak;
+					rpeak = 1;
+					gpeak = 1;
+					bpeak = 1;
+					chinit = ticks;
+					chfini = ticks + chtime;
+					printf("\tReset all curves to unity\n");
 					break;
 
 				case 't':  /* Set change time */
@@ -168,7 +187,7 @@ int main(int argc, char **argv) {
 					i = (nextcmd - cmdbuf);
 					break;
 
-				case 'r':  /* Set refresh time */
+				case 'c':  /* Set refresh time */
 					temp = strtol(cmdbuf + (i + 1), &nextcmd, 10);
 					if(*nextcmd == '\n') {
 						update = temp;
@@ -184,13 +203,13 @@ int main(int argc, char **argv) {
 					colortable(buffer + gammasz * 2, gammasz, bpeak, bgamma);
 					for(i = 0; i < nscreens; i++)
 						XF86VidModeSetGammaRamp(dpy, i, gammasz, buffer, buffer + gammasz, buffer + gammasz * 2);
-					printf("\tUpdate foced\n");
+					printf("\tUpdate forced\n");
 					break;
 
 				case 'g':  /* Gamma */
 					switch(cmdbuf[i + 1]) {
 						case 'r':
-							temp = strtol(cmdbuf + (i + 2), &nextcmd, 10);
+							temp = strtod(cmdbuf + (i + 2), &nextcmd);
 							if(*nextcmd == '\n') {
 								rgamma = temp;
 								chinit = ticks;
@@ -201,7 +220,7 @@ int main(int argc, char **argv) {
 							break;
 
 						case 'g':
-							temp = strtol(cmdbuf + (i + 2), &nextcmd, 10);
+							temp = strtod(cmdbuf + (i + 2), &nextcmd);
 							if(*nextcmd == '\n') {
 								ggamma = temp;
 								chinit = ticks;
@@ -212,7 +231,7 @@ int main(int argc, char **argv) {
 							break;
 
 						case 'b':
-							temp = strtol(cmdbuf + (i + 2), &nextcmd, 10);
+							temp = strtod(cmdbuf + (i + 2), &nextcmd);
 							if(*nextcmd == '\n') {
 								bgamma = temp;
 								chinit = ticks;
@@ -223,7 +242,7 @@ int main(int argc, char **argv) {
 							break;
 
 						default:
-							temp = strtol(cmdbuf + (i + 1), &nextcmd, 10);
+							temp = strtod(cmdbuf + (i + 1), &nextcmd);
 							if(*nextcmd == '\n') {
 								rgamma = ggamma = bgamma = temp;
 								chinit = ticks;
